@@ -1,0 +1,148 @@
+--[[
+ ________  _______   ________  ________     
+|\   ___ \|\  ___ \ |\   __  \|\   __  \    
+\ \  \_|\ \ \   __/|\ \  \|\  \ \  \|\  \   
+ \ \  \ \\ \ \  \_|/_\ \   __  \ \   _  _\  
+  \ \  \_\\ \ \  \_|\ \ \  \ \  \ \  \\  \| 
+   \ \_______\ \_______\ \__\ \__\ \__\\ _\ 
+    \|_______|\|_______|\|__|\|__|\|__|\|__|
+    
+    CODED BY D_EAR 
+    PROFILE: https://www.roblox.com/users/166535553/profile                                                                                        
+]]
+
+local Framework = {}
+
+Framework.__Index = Framework
+
+function Framework:Start()
+	local ReplicatedStorage = game:GetService("ReplicatedStorage")
+	local RunService = game:GetService("RunService")
+	local TweenService = game:GetService("TweenService")
+	local Players = game:GetService("Players")
+	local UserInputService = game:GetService("UserInputService")
+	local SoundService = game:GetService("SoundService")
+	local StarterGui = game:GetService("StarterGui")
+	local CollectionService = game:GetService("CollectionService")
+	local MarketPlaceService = game:GetService("MarketplaceService")
+	local Debris = game:GetService("Debris")
+	local PhysicsService = game:GetService("PhysicsService")
+	local isStudio = RunService:IsStudio()
+	
+	local Remotes = ReplicatedStorage:WaitForChild("Remotes")
+	local RagdollRemote = Remotes:WaitForChild("FLDLAGJS")
+
+	local LocalPlayer = Players.LocalPlayer
+	local Character, Humanoid, HumanoidRootPart = nil, nil, nil
+	local Connections = {}
+	
+	local function StartFRay()
+		if not HumanoidRootPart or not HumanoidRootPart.Parent then return end 
+		local RayParameters = RaycastParams.new()
+		RayParameters.IgnoreWater = true 
+		RayParameters.FilterType = Enum.RaycastFilterType.Blacklist;
+		RayParameters.FilterDescendantsInstances = { workspace.Characters, workspace.Filter }
+		
+		local PosTo = HumanoidRootPart.Position - Vector3.new(0, 500000, 0)
+		local Cast = workspace:Raycast(HumanoidRootPart.Position, PosTo, RayParameters);
+		
+		if Cast and Cast.Position then
+			return {Cast.Position, Cast.Instance, (HumanoidRootPart.Position - Cast.Position).Magnitude}
+		end
+	end
+	
+	LocalPlayer.CharacterAdded:Connect(function(Char)
+		-- |--CHARACTER ADDED--| --
+		Character = Char 
+		Humanoid = Char:WaitForChild("Humanoid", math.huge)
+		HumanoidRootPart = Char:WaitForChild("HumanoidRootPart", math.huge)
+		
+		local Velocity_Value = Instance.new("NumberValue")
+		local Tween = nil
+		local Rag_DKey = script:WaitForChild("REK").Value
+		local Fall_DKey = script:WaitForChild("FDK").Value
+		local Last_FTick = tick()
+		local AllowTick = true
+		local Died = false
+		
+		local SDB = false
+		
+		for I, Part in pairs(Char:GetChildren()) do 
+			local Debounce = false
+			if Part:IsA("BasePart") then
+				table.insert(Connections, Part.Touched:Connect(function(OB)
+					if OB:IsDescendantOf(Char) then
+						return
+					end
+					if OB:IsDescendantOf(workspace.Filter) then
+						return
+					end
+
+					if Debounce then
+						return
+					end
+
+					if not Debounce and Velocity_Value.Value > 15 and _G.FSV("Ragdolled").Value == true then
+						RagdollRemote:FireServer(Fall_DKey, Part, OB, Velocity_Value.Value)
+					end
+
+					delay(0.1, function()
+						Debounce = false
+					end)				
+				end))
+			end
+		end
+		
+		table.insert(Connections, Humanoid.StateChanged:Connect(function(State)
+			if State == Enum.HumanoidStateType.Freefall or State == Enum.HumanoidStateType.FallingDown or State == Enum.HumanoidStateType.Flying or State == Enum.HumanoidStateType.Jumping then
+				AllowTick = false 
+			elseif State ~= Enum.HumanoidStateType.Freefall and State ~= Enum.HumanoidStateType.FallingDown and State ~= Enum.HumanoidStateType.Flying and State ~= Enum.HumanoidStateType.Jumping and State ~= nil then
+				AllowTick = true;
+			end
+		end))
+		
+		table.insert(Connections, _G.FSV("Ragdolled"):GetPropertyChangedSignal("Value"):Connect(function()
+			HumanoidRootPart.Velocity = HumanoidRootPart.Velocity * 1.25
+		end))
+		
+		
+		table.insert(Connections, RunService.Heartbeat:Connect(function()
+			if AllowTick == false and tick() - Last_FTick >= 0.3 and _G.FSV("Ragdolled").Value == false and SDB == false then
+				RagdollRemote:FireServer(Rag_DKey, "aMM2TLA61")			
+				SDB = true; delay(1, function()
+					SDB = false
+				end)
+			end
+			if StartFRay() and StartFRay()[3] and StartFRay()[3] > 30 then
+				AllowTick = false
+			elseif StartFRay() and StartFRay()[3] and StartFRay()[3] < 30 then
+				AllowTick = true
+			end
+			
+			if Tween then
+				Tween:Cancel()
+				Tween = nil
+			end
+			Tween = TweenService:Create(Velocity_Value, TweenInfo.new(0.15, Enum.EasingStyle.Linear, Enum.EasingDirection.Out), {
+				Value = HumanoidRootPart.Velocity.Magnitude
+			})
+			Tween:Play()
+
+			if AllowTick then
+				Last_FTick = tick()
+			end		
+		end))
+	end)
+	
+	LocalPlayer.CharacterRemoving:Connect(function()
+		Humanoid = nil
+		HumanoidRootPart = nil
+		Character = nil
+		
+		for _, Conn in pairs(Connections) do 
+			Conn:Disconnect()
+		end
+	end)	
+end
+
+return Framework
